@@ -35,6 +35,7 @@ def cc_segments(dump_id: str, cache_dir: Path = None) -> List[str]:
     wet_paths = cc_wet_paths_url(dump_id)
     cache_dir = cache_dir or jsonql._tmp_dir()
     wet_paths_cache = cache_dir / f"wet_{dump_id}.paths.gz"
+    print(f"wet_paths: {wet_paths}")
     f = jsonql.open_remote_file(wet_paths, cache=wet_paths_cache)
     return [segment.strip() for segment in f]
 
@@ -70,13 +71,25 @@ def parse_doc(headers: List[str], doc: List[str]) -> Optional[dict]:
         return None
 
     try:
-        warc_type = headers[1].split()[1]
+
+        # build dict of headers 
+        headers_kv = dict()
+        for header in headers:
+            splitted = header.split(":", 1)
+
+            # only get relevant headers
+            if splitted[0] in ["WARC-Type", "WARC-Target-URI", "WARC-Date", "WARC-Block-Digest", "Content-Length"]:
+                headers_kv[splitted[0]] = splitted[1].lstrip()
+
+
+        warc_type = headers_kv["WARC-Type"]
         if warc_type != "conversion":
             return None
-        url = headers[2].split()[1]
-        date = headers[3].split()[1]
-        digest = headers[6].split()[1]
-        length = int(headers[8].split()[1])
+        url = headers_kv["WARC-Target-URI"]
+        date = headers_kv["WARC-Date"]
+        digest = headers_kv["WARC-Block-Digest"]
+        length = int(headers_kv["Content-Length"])
+
     except Exception as e:
         logger.warning("Can't parse header:", e, headers, doc)
         return None
